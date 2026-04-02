@@ -105,8 +105,8 @@ npm run dev
 
 ## Deployment notes
 
-- Use **HTTPS** in production; set **`CLIENT_ORIGIN`** to your real frontend URL.
-- Serve the **Vite build** and configure SPA fallback so `/admin` loads `index.html`.
+- Use **HTTPS** in production; set **`CLIENT_ORIGIN`** to your real frontend URL (exact origin, e.g. `https://your-app.cleverapps.io`).
+- **Clever Cloud:** step-by-step guide in [docs/CLEVER_CLOUD.md](docs/CLEVER_CLOUD.md) (build hook, env vars, single Node app serving `client/dist` + API).
 - Set strong **`ADMIN_SECRET`** and **`MISTRAL_API_KEY`** as host secrets (not in git).
 
 ---

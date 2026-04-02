@@ -1,9 +1,14 @@
 import "dotenv/config";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import express from "express";
 import cors from "cors";
 import { createServer } from "http";
 import { Server, type Socket } from "socket.io";
 import { nanoid } from "nanoid";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import {
   type ChatMessage,
   type Room,
@@ -15,6 +20,7 @@ import {
 } from "./llmWatch.js";
 
 const PORT = Number(process.env.PORT) || 3001;
+/** Public browser origin(s) for CORS + Socket.IO. On Clever Cloud use your https://*.cleverapps.io URL. */
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
 const ADMIN_SECRET = process.env.ADMIN_SECRET?.trim() || "";
 
@@ -87,6 +93,7 @@ function findRoomIdBySocket(socketId: string): string | undefined {
 }
 
 const app = express();
+app.set("trust proxy", 1);
 app.use(cors({ origin: CLIENT_ORIGIN, credentials: true }));
 app.use(express.json());
 
@@ -124,6 +131,18 @@ app.get("/api/admin/rooms", adminAuth, (_req, res) => {
   }));
   res.json({ rooms: list });
 });
+
+/** Production: serve Vite build from same host (Clever Cloud single Node app). */
+const clientDist = path.resolve(__dirname, "../../client/dist");
+if (fs.existsSync(clientDist) && fs.existsSync(path.join(clientDist, "index.html"))) {
+  const spaIndex = path.join(clientDist, "index.html");
+  const sendSpa = (_req: express.Request, res: express.Response) => {
+    res.sendFile(spaIndex);
+  };
+  app.use(express.static(clientDist, { index: false }));
+  app.get("/", sendSpa);
+  app.get(/^\/admin(\/.*)?$/i, sendSpa);
+}
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -234,6 +253,6 @@ io.on("connection", (socket: Socket) => {
   });
 });
 
-httpServer.listen(PORT, () => {
-  console.log(`Server http://localhost:${PORT} (client origin ${CLIENT_ORIGIN})`);
+httpServer.listen(PORT, "0.0.0.0", () => {
+  console.log(`Listening on 0.0.0.0:${PORT} (CORS / Socket.IO origin: ${CLIENT_ORIGIN})`);
 });

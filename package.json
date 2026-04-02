@@ -1,6 +1,9 @@
 {
   "name": "margarita",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "workspaces": [
     "server",
     "client"

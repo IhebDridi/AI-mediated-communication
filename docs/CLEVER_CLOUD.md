@@ -67,6 +67,8 @@ Set these in the Clever Console (same place as hooks):
 2. **Link** the add-on to your Node.js application so Clever injects connection variables at runtime.
 3. The server recognises **`POSTGRESQL_ADDON_HOST`**, **`POSTGRESQL_ADDON_USER`**, **`POSTGRESQL_ADDON_PASSWORD`**, **`POSTGRESQL_ADDON_DB`**, and **`POSTGRESQL_ADDON_PORT`**, or a single **`DATABASE_URL`** if you set it yourself.
 
+If you paste **`POSTGRESQL_ADDON_URI`** into **`DATABASE_URL`**, that is fine; the app strips `sslmode` query parameters so TLS still works with Node.js 20+ and **`pg`** (Clever’s certificate would otherwise trigger `DEPTH_ZERO_SELF_SIGNED_CERT`).
+
 On startup it creates an **`archived_chats`** table. **Transcripts are written only when an admin clicks “Collect chat”** in `/admin`; that saves the full message list and removes the room.
 
 Optional:

@@ -17,13 +17,23 @@ export function resolveDatabaseUrl(): string | null {
   if (host && user && password && database) {
     const u = encodeURIComponent(user);
     const p = encodeURIComponent(password);
-    let url = `postgresql://${u}:${p}@${host}:${port}/${database}`;
-    if (!url.includes("sslmode=") && !host.includes("localhost")) {
-      url += (url.includes("?") ? "&" : "?") + "sslmode=require";
-    }
-    return url;
+    // Do not append sslmode=require: Node 20+ / pg 8+ treat it like verify-full and reject
+    // managed-Postgres certs (e.g. Clever Cloud). TLS is enabled via Pool `ssl` below.
+    return `postgresql://${u}:${p}@${host}:${port}/${database}`;
   }
   return null;
+}
+
+/** Remove ssl query params so Pool `ssl: { rejectUnauthorized: false }` is not overridden. */
+function stripPgSslQueryParams(url: string): string {
+  const q = url.indexOf("?");
+  if (q === -1) return url;
+  const base = url.slice(0, q);
+  const rest = url.slice(q + 1);
+  const params = rest
+    .split("&")
+    .filter((p) => p.length > 0 && !/^sslmode=/i.test(p) && !/^uselibpqcompat=/i.test(p));
+  return params.length ? `${base}?${params.join("&")}` : base;
 }
 
 /** True only after a successful pool init + schema (env vars alone are not enough). */
@@ -46,18 +56,21 @@ function logDbTarget(connectionString: string): void {
 }
 
 export async function initDb(): Promise<void> {
-  const url = resolveDatabaseUrl();
-  if (!url) {
+  const rawUrl = resolveDatabaseUrl();
+  if (!rawUrl) {
     console.warn("PostgreSQL not configured (no DATABASE_URL / POSTGRESQL_ADDON_*): admin cannot collect chats to DB.");
     return;
   }
 
+  const isLocal =
+    rawUrl.includes("localhost") ||
+    rawUrl.includes("127.0.0.1") ||
+    /@[^/?]*localhost/i.test(rawUrl);
+  const url = isLocal ? rawUrl : stripPgSslQueryParams(rawUrl);
+
   logDbTarget(url);
 
-  const ssl =
-    url.includes("localhost") || url.includes("127.0.0.1")
-      ? undefined
-      : { rejectUnauthorized: false };
+  const ssl = isLocal ? undefined : { rejectUnauthorized: false };
 
   try {
     pool = new Pool({ connectionString: url, ssl });

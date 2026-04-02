@@ -51,6 +51,14 @@ Set these in the Clever Console (same place as hooks):
 | `MISTRAL_API_KEY` | *(secret)* | Mistral API key for `@LLM` rooms. |
 | `ADMIN_SECRET` | *(strong random string)* | Protects `POST/GET /api/admin/*`. |
 
+### PostgreSQL (chat transcripts)
+
+1. In the Clever Console, add a **[PostgreSQL](https://www.clever-cloud.com/developers/doc/addons/postgresql/)** add-on to your **organisation** (or link it to this Node app).
+2. **Link** the add-on to your Node.js application so Clever injects connection variables at runtime.
+3. The server recognises **`POSTGRESQL_ADDON_HOST`**, **`POSTGRESQL_ADDON_USER`**, **`POSTGRESQL_ADDON_PASSWORD`**, **`POSTGRESQL_ADDON_DB`**, and **`POSTGRESQL_ADDON_PORT`**, or a single **`DATABASE_URL`** if you set it yourself.
+
+On startup it creates an **`archived_chats`** table. **Transcripts are written only when an admin clicks “Collect chat”** in `/admin`; that saves the full message list and removes the room.
+
 Optional:
 
 | Variable | Purpose |
@@ -62,7 +70,7 @@ After the first deploy, Clever shows your app URL (e.g. `https://app-xxx.clevera
 ## 5. What the server does on Clever
 
 - Listens on **`0.0.0.0`** and **`process.env.PORT`** (Clever uses **8080**).
-- Serves **`client/dist`** when that folder exists (after `npm run build`), so `/` and `/admin` load the React SPA.
+- Serves **`client/dist`** when that folder exists (after `npm run build`), so `/`, `/admin`, and `/thankyou` load the React SPA.
 - Proxies are handled with `trust proxy` for correct HTTPS / `X-Forwarded-*` behavior.
 
 ## 6. Health check
@@ -85,4 +93,5 @@ Open `http://localhost:8080` — UI and WebSocket should use the same origin.
 ## References
 
 - [Node.js on Clever Cloud](https://www.clever-cloud.com/developers/doc/applications/nodejs)
+- [PostgreSQL add-on](https://www.clever-cloud.com/developers/doc/addons/postgresql/)
 - [Deployment hooks (`CC_POST_BUILD_HOOK`)](https://www.clever-cloud.com/developers/doc/develop/build-hooks/)

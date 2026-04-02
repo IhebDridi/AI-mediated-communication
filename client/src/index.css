@@ -164,6 +164,72 @@ button.small {
   font-size: 0.85rem;
 }
 
+.admin-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(28, 27, 24, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.admin-modal {
+  width: 100%;
+  max-width: 640px;
+  max-height: min(90vh, 720px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+}
+
+.admin-modal-header {
+  flex-shrink: 0;
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.admin-modal-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.admin-modal-meta {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.admin-modal-actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.65rem 1.1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-modal-body {
+  flex: 1;
+  min-height: 0;
+  padding: 0.75rem 1.1rem 1rem;
+  overflow-y: auto;
+}
+
+.admin-modal-body .messages {
+  max-height: none;
+}
+
 .messages {
   display: flex;
   flex-direction: column;

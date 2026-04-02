@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { io } from "socket.io-client";
 import { MessageBody } from "./MessageBody";
 
@@ -33,6 +33,7 @@ type PreJoinRoomFetch =
   | { status: "error" };
 
 export function ParticipantApp() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const roomFromUrl = searchParams.get("room")?.trim().toLowerCase() || "";
 
@@ -48,6 +49,7 @@ export function ParticipantApp() {
   const [peerPresent, setPeerPresent] = useState(false);
   const [llmTyping, setLlmTyping] = useState(false);
   const [preJoinRoom, setPreJoinRoom] = useState<PreJoinRoomFetch>({ status: "idle" });
+  const [partnerFinished, setPartnerFinished] = useState(false);
 
   useEffect(() => {
     if (roomFromUrl) setRoomId(roomFromUrl);
@@ -148,21 +150,30 @@ export function ParticipantApp() {
       setMessages((prev) => [...prev, m]);
     };
     const onPeerJoined = () => setPeerPresent(true);
-    const onPeerLeft = () => setPeerPresent(false);
+    const onPeerLeft = (p?: { voluntary?: boolean }) => {
+      setPeerPresent(false);
+      if (p?.voluntary) setPartnerFinished(true);
+    };
+    const onVoluntaryExit = (p: { slot: ParticipantSlot }) => {
+      if (!slot || p.slot === slot) return;
+      setPartnerFinished(true);
+    };
     const onTyping = (p: { typing: boolean }) => setLlmTyping(!!p?.typing);
 
     socket.on("message", onMessage);
     socket.on("peer_joined", onPeerJoined);
     socket.on("peer_left", onPeerLeft);
+    socket.on("voluntary_exit", onVoluntaryExit);
     socket.on("llm_typing", onTyping);
 
     return () => {
       socket.off("message", onMessage);
       socket.off("peer_joined", onPeerJoined);
       socket.off("peer_left", onPeerLeft);
+      socket.off("voluntary_exit", onVoluntaryExit);
       socket.off("llm_typing", onTyping);
     };
-  }, [socket]);
+  }, [socket, slot]);
 
   const send = useCallback(() => {
     const t = draft.trim();
@@ -170,6 +181,14 @@ export function ParticipantApp() {
     socket.emit("chat_message", t);
     setDraft("");
   }, [draft, socket]);
+
+  const finishAndLeave = useCallback(() => {
+    if (socket.connected) {
+      socket.emit("exit_chat");
+      socket.disconnect();
+    }
+    navigate("/thankyou");
+  }, [navigate, socket]);
 
   /** In-app copy only — no reference to alternate study conditions. */
   const sessionHintEl =
@@ -284,6 +303,12 @@ export function ParticipantApp() {
         {sessionHintEl}
       </p>
 
+      {partnerFinished ? (
+        <p className="hint" style={{ marginBottom: "0.75rem", color: "var(--muted)", fontWeight: 600 }}>
+          Your partner has finished and left the study chat.
+        </p>
+      ) : null}
+
       <div className="card">
         <div className="messages" ref={listRef} aria-live="polite">
           {messages.map((m) => (
@@ -319,6 +344,14 @@ export function ParticipantApp() {
           <button type="button" onClick={send} disabled={!draft.trim()}>
             Send
           </button>
+        </div>
+        <div style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border)" }}>
+          <button type="button" className="secondary" onClick={finishAndLeave}>
+            Finish and leave
+          </button>
+          <p className="hint" style={{ marginTop: "0.45rem", marginBottom: 0 }}>
+            When you are done, you can leave and go to a short thank-you screen.
+          </p>
         </div>
       </div>
     </>

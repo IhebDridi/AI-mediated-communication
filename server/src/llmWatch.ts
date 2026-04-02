@@ -19,6 +19,8 @@ export type Room = {
   /** Optional researcher note (admin only, not shown to participants). */
   label?: string;
   llmTail: Promise<void>;
+  /** When each participant clicked “Finish and leave” (ms since epoch). */
+  voluntaryExit: Partial<Record<ParticipantSlot, number>>;
 };
 
 const MISTRAL_MODEL = process.env.MISTRAL_MODEL || "mistral-small-latest";

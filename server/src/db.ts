@@ -26,8 +26,9 @@ export function resolveDatabaseUrl(): string | null {
   return null;
 }
 
+/** True only after a successful pool init + schema (env vars alone are not enough). */
 export function isDbConfigured(): boolean {
-  return resolveDatabaseUrl() !== null;
+  return pool !== null;
 }
 
 function logDbTarget(connectionString: string): void {
@@ -58,9 +59,10 @@ export async function initDb(): Promise<void> {
       ? undefined
       : { rejectUnauthorized: false };
 
-  pool = new Pool({ connectionString: url, ssl });
+  try {
+    pool = new Pool({ connectionString: url, ssl });
 
-  await pool.query(`
+    await pool.query(`
     CREATE TABLE IF NOT EXISTS archived_chats (
       id SERIAL PRIMARY KEY,
       room_id VARCHAR(64) NOT NULL,
@@ -75,7 +77,17 @@ export async function initDb(): Promise<void> {
     );
   `);
 
-  console.log("PostgreSQL: archived_chats table ready.");
+    console.log("PostgreSQL: archived_chats table ready.");
+  } catch (e) {
+    console.error("PostgreSQL: connection or migration failed — app will run without DB until this is fixed.");
+    console.error(e);
+    try {
+      await pool?.end();
+    } catch {
+      /* ignore */
+    }
+    pool = null;
+  }
 }
 
 export type ArchivePayload = {

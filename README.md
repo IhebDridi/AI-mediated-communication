@@ -185,7 +185,7 @@ Open **http://localhost:8080** — UI and Socket.IO use the same origin.
 ## Deployment notes
 
 - Use **HTTPS** in production; set **`CLIENT_ORIGIN`** to your real frontend URL (exact origin, e.g. `https://your-app.cleverapps.io`).
-- **Clever Cloud:** step-by-step guide in [docs/CLEVER_CLOUD.md](docs/CLEVER_CLOUD.md) (GitHub app, build hook, env vars, PostgreSQL add-on linked to the Node app, single process serving `client/dist` + API).
+- **Clever Cloud:** step-by-step guide in [docs/CLEVER_CLOUD.md](docs/CLEVER_CLOUD.md) (GitHub app, env vars, PostgreSQL add-on linked to the Node app, single process serving `client/dist` + API). The repo runs **`npm run build` during `npm install` on Clever** (via `postinstall` when `CC_APP_ID` is set) so `server/dist/index.js` exists; if you ever see **`Cannot find module .../server/dist/index.js`**, follow the build section in that doc and ensure **`CC_NODE_DEV_DEPENDENCIES`** = `install` so TypeScript is installed.
 - Set strong **`ADMIN_SECRET`** and **`MISTRAL_API_KEY`** as host secrets (not in git).
 
 ---

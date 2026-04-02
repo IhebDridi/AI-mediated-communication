@@ -10,15 +10,25 @@ This app is one **Node.js** process: Express + Socket.IO + API, and (after build
 
 ## 2. Build: compile client + server
 
-Clever runs `npm install` at the **repository root** (workspaces install `client` and `server`). It does **not** run `npm run build` unless you ask.
+Clever runs `npm install` at the **repository root** (workspaces install `client` and `server`). By default it does **not** run `npm run build`, so **`server/dist/index.js` is missing** and the app crashes with:
 
-In the app **environment variables** (Console → your app → *Environment variables*), add:
+`Error: Cannot find module '.../server/dist/index.js'`.
+
+### Option A — automatic (this repository)
+
+The root **`postinstall`** script runs **`npm run build`** when Clever’s **`CC_APP_ID`** is present (Clever injects it before `npm install`). You do **not** need `CC_POST_BUILD_HOOK` for a basic deploy.
+
+### Option B — deployment hook only
+
+If you prefer not to use `postinstall`, remove or ignore it and set:
 
 | Variable | Value |
 |----------|--------|
 | `CC_POST_BUILD_HOOK` | `npm run build` |
 
-That runs the root script which builds **Vite** (`client/dist`) and **TypeScript** (`server/dist`).
+(or `./clevercloud/post_build.sh` — make the script executable in git if you use it directly).
+
+Using **both** Option A and `CC_POST_BUILD_HOOK` builds twice per deploy; harmless, but you can drop the hook.
 
 ### TypeScript build needs devDependencies
 

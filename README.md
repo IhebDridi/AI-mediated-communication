@@ -190,6 +190,3 @@ Open **http://localhost:8080** — UI and Socket.IO use the same origin.
 
 ---
 
-## License
-
-Specify a license in the repository settings or add a `LICENSE` file when your team decides (research / institutional policy).

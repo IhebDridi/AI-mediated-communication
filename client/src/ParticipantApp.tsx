@@ -190,7 +190,7 @@ export function ParticipantApp() {
     navigate("/thankyou");
   }, [navigate, socket]);
 
-  /** In-app copy only — no reference to alternate study conditions. */
+  /** In-app copy only - no reference to alternate study conditions. */
   const sessionHintEl =
     treatment === "llm_enabled" ? (
       <>
@@ -216,7 +216,7 @@ export function ParticipantApp() {
       return "That code was not found. Check the link or code you were given.";
     if (preJoinRoom.status === "error") return "Could not load room status.";
     const n = preJoinRoom.occupantCount;
-    if (n === 0) return "No one else is connected yet — your partner can use the same code.";
+    if (n === 0) return "No one else is connected yet - your partner can use the same code.";
     if (n === 1) return "One other person is already in this room.";
     return "This room may already be full (two people).";
   };

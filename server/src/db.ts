@@ -92,7 +92,7 @@ export async function initDb(): Promise<void> {
 
     console.log("PostgreSQL: archived_chats table ready.");
   } catch (e) {
-    console.error("PostgreSQL: connection or migration failed — app will run without DB until this is fixed.");
+    console.error("PostgreSQL: connection or migration failed - app will run without DB until this is fixed.");
     console.error(e);
     try {
       await pool?.end();

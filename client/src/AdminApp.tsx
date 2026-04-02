@@ -113,8 +113,8 @@ function ArchiveTranscriptBody({ archive }: { archive: ArchiveDetail }) {
     <>
       <p className="hint" style={{ marginTop: 0, marginBottom: "0.75rem" }}>
         P1 voluntary exit:{" "}
-        {archive.p1_voluntary_exit_ms ? formatShort(archive.p1_voluntary_exit_ms) : "—"} · P2:{" "}
-        {archive.p2_voluntary_exit_ms ? formatShort(archive.p2_voluntary_exit_ms) : "—"} · Connected at collect: P1{" "}
+        {archive.p1_voluntary_exit_ms ? formatShort(archive.p1_voluntary_exit_ms) : "-"} · P2:{" "}
+        {archive.p2_voluntary_exit_ms ? formatShort(archive.p2_voluntary_exit_ms) : "-"} · Connected at collect: P1{" "}
         {archive.p1_connected_at_archive ? "yes" : "no"}, P2 {archive.p2_connected_at_archive ? "yes" : "no"}
       </p>
       <div className="messages" aria-live="polite">
@@ -429,7 +429,7 @@ export function AdminApp() {
             <input
               id="new-label"
               type="text"
-              placeholder="e.g. Pair 12 — condition A"
+              placeholder="e.g. Pair 12 - condition A"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
             />
@@ -483,7 +483,7 @@ export function AdminApp() {
             <tbody>
               {rooms.map((r) => (
                 <tr key={r.roomId}>
-                  <td>{r.label || "—"}</td>
+                  <td>{r.label || "-"}</td>
                   <td>{r.treatment === "llm_enabled" ? "Chat + @LLM" : "Human only"}</td>
                   <td>
                     <code>{r.roomId}</code>
@@ -541,7 +541,7 @@ export function AdminApp() {
                   <td>
                     <code>{a.room_id}</code>
                   </td>
-                  <td>{a.label || "—"}</td>
+                  <td>{a.label || "-"}</td>
                   <td>{a.treatment === "llm_enabled" ? "Chat + @LLM" : "Human only"}</td>
                   <td>{a.message_count}</td>
                   <td>{formatShort(new Date(a.archived_at).getTime())}</td>

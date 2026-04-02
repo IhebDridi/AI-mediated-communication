@@ -14,11 +14,11 @@ Clever runs `npm install` at the **repository root** (workspaces install `client
 
 `Error: Cannot find module '.../server/dist/index.js'`.
 
-### Option A — automatic (this repository)
+### Option A - automatic (this repository)
 
 The root **`postinstall`** script runs **`npm run build`** when Clever’s **`CC_APP_ID`** is present (Clever injects it before `npm install`). You do **not** need `CC_POST_BUILD_HOOK` for a basic deploy.
 
-### Option B — deployment hook only
+### Option B - deployment hook only
 
 If you prefer not to use `postinstall`, remove or ignore it and set:
 
@@ -26,7 +26,7 @@ If you prefer not to use `postinstall`, remove or ignore it and set:
 |----------|--------|
 | `CC_POST_BUILD_HOOK` | `npm run build` |
 
-(or `./clevercloud/post_build.sh` — make the script executable in git if you use it directly).
+(or `./clevercloud/post_build.sh` - make the script executable in git if you use it directly).
 
 Using **both** Option A and `CC_POST_BUILD_HOOK` builds twice per deploy; harmless, but you can drop the hook.
 
@@ -100,7 +100,7 @@ npm run build
 NODE_ENV=production PORT=8080 CLIENT_ORIGIN=http://localhost:8080 npm start
 ```
 
-Open `http://localhost:8080` — UI and WebSocket should use the same origin.
+Open `http://localhost:8080` - UI and WebSocket should use the same origin.
 
 ## References
 

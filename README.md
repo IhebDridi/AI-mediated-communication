@@ -1,4 +1,4 @@
-# AI-mediated communication — study chat platform
+# AI-mediated communication - study chat platform
 
 Real-time **dyadic chat** for behavioral research comparing **human-only** dialogue with **optional AI assistance** (via [Mistral](https://mistral.ai/)). Pairs join a shared **room**; in the AI condition, participants request help only by starting a message with **`@LLM`**. The assistant does **not** monitor or intervene unless explicitly tagged.
 
@@ -31,8 +31,8 @@ The codebase is a small **npm monorepo** (`server` + `client`). Internal package
 - **Node.js** (LTS) and **npm**
 - **Mistral API key** (for `@LLM` rooms only), server-side only
 - **`ADMIN_SECRET`** recommended for any shared or production host
-- **PostgreSQL** (optional locally) for **Collect chat** and archives — use [Docker](#local-testing-with-postgresql-docker), a local install, or Clever’s **PostgreSQL add-on**
-- **Docker Desktop** (optional) — convenient way to run Postgres on your machine for local testing
+- **PostgreSQL** (optional locally) for **Collect chat** and archives - use [Docker](#local-testing-with-postgresql-docker), a local install, or Clever’s **PostgreSQL add-on**
+- **Docker Desktop** (optional) - convenient way to run Postgres on your machine for local testing
 
 ---
 
@@ -100,8 +100,8 @@ Then:
 
 ### 4. Troubleshooting (`28P01` / password authentication failed)
 
-1. **Wrong Postgres on `5432`** — A host install may be answering instead of Docker. Use **`-p 5433:5432`** for the container and set **`DATABASE_URL`** to port **5433**.
-2. **Old Docker data volume** — The superuser password is set only on **first** database init. To reset: remove the container and its volume, then `docker run` again, or keep the volume and use the password from the first init.
+1. **Wrong Postgres on `5432`** - A host install may be answering instead of Docker. Use **`-p 5433:5432`** for the container and set **`DATABASE_URL`** to port **5433**.
+2. **Old Docker data volume** - The superuser password is set only on **first** database init. To reset: remove the container and its volume, then `docker run` again, or keep the volume and use the password from the first init.
 3. Confirm the startup log line shows the **host and port** you expect.
 
 ### 5. Production-style smoke test (same origin)
@@ -114,7 +114,7 @@ npm run build
 $env:NODE_ENV="production"; $env:PORT="8080"; $env:CLIENT_ORIGIN="http://localhost:8080"; npm start
 ```
 
-Open **http://localhost:8080** — UI and Socket.IO use the same origin.
+Open **http://localhost:8080** - UI and Socket.IO use the same origin.
 
 ---
 
@@ -171,12 +171,12 @@ Open **http://localhost:8080** — UI and Socket.IO use the same origin.
 - `GET /api/rooms/:roomId` → `{ occupantCount }`
 
 **Admin** (Bearer `ADMIN_SECRET` when set)  
-- `POST /api/admin/rooms` — body `{ treatment, label? }`  
-- `GET /api/admin/rooms` — list rooms, P1/P2 connection + voluntary-exit timestamps, `dbConfigured`  
-- `POST /api/admin/rooms/:roomId/collect` — save transcript to PostgreSQL and remove room  
-- `GET /api/admin/archives` — recent collected rows (metadata + message counts)  
-- `GET /api/admin/archives/:id` — full archived row including `messages` (JSON)  
-- `GET /api/admin/archives/:id/csv` — UTF-8 CSV download (one row per message; BOM for Excel)  
+- `POST /api/admin/rooms` - body `{ treatment, label? }`  
+- `GET /api/admin/rooms` - list rooms, P1/P2 connection + voluntary-exit timestamps, `dbConfigured`  
+- `POST /api/admin/rooms/:roomId/collect` - save transcript to PostgreSQL and remove room  
+- `GET /api/admin/archives` - recent collected rows (metadata + message counts)  
+- `GET /api/admin/archives/:id` - full archived row including `messages` (JSON)  
+- `GET /api/admin/archives/:id/csv` - UTF-8 CSV download (one row per message; BOM for Excel)  
 
 **Socket.IO:** `join`, `chat_message`, `exit_chat`; server emits `message`, `peer_joined`, `peer_left` (optional `{ voluntary }`), `voluntary_exit`, `llm_typing` (during tagged `@LLM` handling).
 

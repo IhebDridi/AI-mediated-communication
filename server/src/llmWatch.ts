@@ -18,6 +18,12 @@ export type Room = {
   slots: Partial<Record<ParticipantSlot, string>>;
   /** Optional researcher note (admin only, not shown to participants). */
   label?: string;
+  /** Set for rooms created from a pairing session (admin export). */
+  sessionId?: string;
+  /** Names from join (admin dashboard). */
+  participantNames?: Partial<Record<ParticipantSlot, string>>;
+  /** Client-generated ids from session flow (pairing session). */
+  participantPublicIds?: Partial<Record<ParticipantSlot, string>>;
   llmTail: Promise<void>;
   /** When each participant clicked “Finish and leave” (ms since epoch). */
   voluntaryExit: Partial<Record<ParticipantSlot, number>>;
@@ -49,28 +55,45 @@ function toMistralMessages(history: ChatMessage[]) {
   return out;
 }
 
+function mistralAuthFailureMessage(err: unknown): string | null {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (/\b401\b/.test(msg) || /Unauthorized/i.test(msg)) {
+    return "[Assistant unavailable: the AI service rejected the server key. Ask the researcher to check MISTRAL_API_KEY in server/.env and restart the server.]";
+  }
+  return null;
+}
+
 export async function runMistral(historyIncludingTrigger: ChatMessage[]): Promise<string> {
-  const apiKey = process.env.MISTRAL_API_KEY;
+  const apiKey = process.env.MISTRAL_API_KEY?.trim();
   if (!apiKey) {
     return "[Assistant unavailable: set MISTRAL_API_KEY on the server.]";
   }
   const mistral = new Mistral({ apiKey });
   const messages = toMistralMessages(historyIncludingTrigger);
-  const res = await mistral.chat.complete({
-    model: MISTRAL_MODEL,
-    messages,
-    temperature: 0.5,
-  });
-  const choice = res.choices?.[0];
-  const content = choice?.message?.content;
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    return content
-      .map((c) => ("text" in c ? c.text : ""))
-      .join("")
-      .trim();
+  try {
+    const res = await mistral.chat.complete({
+      model: MISTRAL_MODEL,
+      messages,
+      temperature: 0.5,
+    });
+    const choice = res.choices?.[0];
+    const content = choice?.message?.content;
+    if (typeof content === "string") return content;
+    if (Array.isArray(content)) {
+      return content
+        .map((c) => ("text" in c ? c.text : ""))
+        .join("")
+        .trim();
+    }
+    return "";
+  } catch (e) {
+    const friendly = mistralAuthFailureMessage(e);
+    if (friendly) {
+      console.error("Mistral API unauthorized (check MISTRAL_API_KEY):", e);
+      return friendly;
+    }
+    throw e;
   }
-  return "";
 }
 
 export function scheduleRoomLlm(room: Room, job: () => Promise<void>): void {

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { io } from "socket.io-client";
 import { MessageBody } from "./MessageBody";
+import { SessionPreChatSteps } from "./SessionPreChatSteps";
+import { useSessionPresenceReport } from "./useSessionPresenceReport";
 
 type Treatment = "human_only" | "llm_enabled";
 type ParticipantSlot = "p1" | "p2";
@@ -32,14 +34,22 @@ type PreJoinRoomFetch =
   | { status: "missing" }
   | { status: "error" };
 
+function messageBubbleClass(m: ChatMessage, mySlot: ParticipantSlot | null) {
+  if (m.slot === "llm") return "msg llm";
+  if (mySlot && m.slot === mySlot) return "msg msg-self";
+  return "msg msg-peer";
+}
+
 export function ParticipantApp() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const roomFromUrl = searchParams.get("room")?.trim().toLowerCase() || "";
+  const sessionFromUrl = searchParams.get("session")?.trim().toLowerCase() || "";
 
   const [roomId, setRoomId] = useState(roomFromUrl);
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("");
+  const [region, setRegion] = useState("");
   const [joined, setJoined] = useState(false);
   const [slot, setSlot] = useState<ParticipantSlot | null>(null);
   const [treatment, setTreatment] = useState<Treatment | null>(null);
@@ -50,10 +60,59 @@ export function ParticipantApp() {
   const [llmTyping, setLlmTyping] = useState(false);
   const [preJoinRoom, setPreJoinRoom] = useState<PreJoinRoomFetch>({ status: "idle" });
   const [partnerFinished, setPartnerFinished] = useState(false);
+  const [matchWaiting, setMatchWaiting] = useState(false);
+  const [matchError, setMatchError] = useState<string | null>(null);
+  const [queueTicket, setQueueTicket] = useState<string | null>(null);
+  /** null = loading; true/false once we know */
+  const [sessionPairingEnabled, setSessionPairingEnabled] = useState<boolean | null>(null);
+  const [sessionFetchState, setSessionFetchState] = useState<"idle" | "ok" | "notfound">("idle");
 
   useEffect(() => {
     if (roomFromUrl) setRoomId(roomFromUrl);
   }, [roomFromUrl]);
+
+  useEffect(() => {
+    if (!sessionFromUrl) return;
+    try {
+      const saved = sessionStorage.getItem(`margarita.session.${sessionFromUrl}.displayName`);
+      if (saved) setDisplayName((prev) => prev || saved);
+      const savedRegion = sessionStorage.getItem(`margarita.session.${sessionFromUrl}.region`);
+      if (savedRegion) setRegion((prev) => prev || savedRegion);
+    } catch {
+      /* ignore */
+    }
+  }, [sessionFromUrl]);
+
+  useEffect(() => {
+    if (!sessionFromUrl || joined) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const r = await fetch(`/api/sessions/${encodeURIComponent(sessionFromUrl)}`);
+        if (cancelled) return;
+        if (r.status === 404) {
+          setSessionFetchState("notfound");
+          setSessionPairingEnabled(false);
+          return;
+        }
+        if (!r.ok) return;
+        const j = (await r.json()) as { pairingEnabled?: boolean };
+        if (cancelled) return;
+        setSessionFetchState("ok");
+        setSessionPairingEnabled(!!j.pairingEnabled);
+      } catch {
+        /* transient errors: keep last known session state */
+      }
+    };
+    setSessionPairingEnabled(null);
+    setSessionFetchState("idle");
+    void tick();
+    const id = window.setInterval(() => void tick(), 3000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [sessionFromUrl, joined]);
 
   const listRef = useRef<HTMLDivElement | null>(null);
 
@@ -112,38 +171,154 @@ export function ParticipantApp() {
     if (!socket.connected) socket.connect();
   }, [socket]);
 
-  const joinRoom = useCallback(() => {
-    setError(null);
-    connectSocket();
-    const id = roomId.trim().toLowerCase();
-    if (!id) {
-      setError("Enter a room code.");
+  const joinRoom = useCallback(
+    (explicitRoomId?: string) => {
+      setError(null);
+      const name = displayName.trim();
+      if (!name) {
+        setError("Enter your name.");
+        return;
+      }
+      if (name.length > 80) {
+        setError("Name must be at most 80 characters.");
+        return;
+      }
+      connectSocket();
+      const id = (explicitRoomId ?? roomId).trim().toLowerCase();
+      if (!id) {
+        setError("Enter a room code.");
+        return;
+      }
+      let participantPublicId: string | undefined;
+      if (sessionFromUrl) {
+        try {
+          participantPublicId =
+            sessionStorage.getItem(`margarita.session.${sessionFromUrl}.participantId`) ?? undefined;
+        } catch {
+          participantPublicId = undefined;
+        }
+      }
+      socket.emit(
+        "join",
+        {
+          roomId: id,
+          displayName: name,
+          ...(participantPublicId ? { participantPublicId } : {}),
+        },
+        (ack: {
+          ok: boolean;
+          error?: string;
+          slot?: ParticipantSlot;
+          treatment?: Treatment;
+          messages?: ChatMessage[];
+          peerConnected?: boolean;
+        }) => {
+          if (!ack?.ok) {
+            setError(ack?.error || "Could not join.");
+            return;
+          }
+          setJoined(true);
+          setActiveRoomId(id);
+          setSlot(ack.slot ?? null);
+          setTreatment(ack.treatment ?? null);
+          setMessages(ack.messages ?? []);
+          setPeerPresent(!!ack.peerConnected);
+        },
+      );
+    },
+    [connectSocket, displayName, roomId, sessionFromUrl, socket],
+  );
+
+  const startMatchmaking = useCallback(async (regionInput: string) => {
+    if (!sessionFromUrl) {
+      setMatchError("Missing session in your link. Use the study URL you were given.");
       return;
     }
-    socket.emit(
-      "join",
-      { roomId: id, displayName: displayName.trim() || undefined },
-      (ack: {
-        ok: boolean;
-        error?: string;
-        slot?: ParticipantSlot;
-        treatment?: Treatment;
-        messages?: ChatMessage[];
-        peerConnected?: boolean;
-      }) => {
-        if (!ack?.ok) {
-          setError(ack?.error || "Could not join.");
-          return;
+    const name = displayName.trim();
+    if (!name) {
+      setMatchError("Enter your name before joining the queue.");
+      return;
+    }
+    if (name.length > 80) {
+      setMatchError("Name must be at most 80 characters.");
+      return;
+    }
+    const regionValue = regionInput.trim();
+    if (!regionValue) {
+      setMatchError("Enter your region before joining the queue.");
+      return;
+    }
+    setMatchError(null);
+    setMatchWaiting(true);
+    setQueueTicket(null);
+    try {
+      let participantPublicId: string | undefined;
+      try {
+        participantPublicId =
+          sessionStorage.getItem(`margarita.session.${sessionFromUrl}.participantId`) ?? undefined;
+      } catch {
+        participantPublicId = undefined;
+      }
+      const res = await fetch("/api/match/enqueue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: sessionFromUrl,
+          displayName: name,
+          region: regionValue,
+          ...(participantPublicId ? { participantPublicId } : {}),
+        }),
+      });
+      if (res.status === 403) {
+        throw new Error("Matching has not started yet. Please wait for the researcher.");
+      }
+      if (res.status === 404) {
+        throw new Error("This study session was not found. Check your link.");
+      }
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(j.error || "Could not start matching.");
+      }
+      const data = (await res.json()) as {
+        ticket: string;
+        matched: boolean;
+        roomId?: string;
+      };
+      if (data.matched && data.roomId) {
+        setQueueTicket(null);
+        setMatchWaiting(false);
+        setRoomId(data.roomId);
+        joinRoom(data.roomId);
+      } else {
+        setQueueTicket(data.ticket);
+      }
+    } catch (e) {
+      setMatchWaiting(false);
+      setQueueTicket(null);
+      setMatchError(e instanceof Error ? e.message : "Matching failed.");
+    }
+  }, [joinRoom, sessionFromUrl, displayName]);
+
+  useEffect(() => {
+    if (!queueTicket || joined) return;
+    const intervalId = window.setInterval(async () => {
+      try {
+        const res = await fetch(`/api/match/status?ticket=${encodeURIComponent(queueTicket)}`);
+        if (!res.ok) return;
+        const data = (await res.json()) as { matched: boolean; roomId?: string };
+        if (data.matched && data.roomId) {
+          window.clearInterval(intervalId);
+          setMatchWaiting(false);
+          setQueueTicket(null);
+          setRoomId(data.roomId);
+          joinRoom(data.roomId);
         }
-        setJoined(true);
-        setActiveRoomId(id);
-        setSlot(ack.slot ?? null);
-        setTreatment(ack.treatment ?? null);
-        setMessages(ack.messages ?? []);
-        setPeerPresent(!!ack.peerConnected);
-      },
-    );
-  }, [connectSocket, displayName, roomId, socket]);
+      } catch {
+        /* keep polling */
+      }
+    }, 1500);
+    return () => window.clearInterval(intervalId);
+  }, [queueTicket, joined, joinRoom]);
 
   useEffect(() => {
     const onMessage = (m: ChatMessage) => {
@@ -175,6 +350,14 @@ export function ParticipantApp() {
     };
   }, [socket, slot]);
 
+  useSessionPresenceReport({
+    sessionId: sessionFromUrl || null,
+    phase: "chat",
+    displayName,
+    region,
+    enabled: !!sessionFromUrl && joined,
+  });
+
   const send = useCallback(() => {
     const t = draft.trim();
     if (!t) return;
@@ -187,8 +370,12 @@ export function ParticipantApp() {
       socket.emit("exit_chat");
       socket.disconnect();
     }
-    navigate("/thankyou");
-  }, [navigate, socket]);
+    if (sessionFromUrl) {
+      navigate(`/study/afterchat?session=${encodeURIComponent(sessionFromUrl)}`);
+    } else {
+      navigate("/thankyou");
+    }
+  }, [navigate, sessionFromUrl, socket]);
 
   /** In-app copy only - no reference to alternate study conditions. */
   const sessionHintEl =
@@ -222,10 +409,56 @@ export function ParticipantApp() {
   };
 
   if (!joined) {
+    if (sessionFromUrl) {
+      return (
+        <SessionPreChatSteps
+          sessionId={sessionFromUrl}
+          sessionPairingEnabled={sessionPairingEnabled}
+          sessionFetchState={sessionFetchState}
+          displayName={displayName}
+          setDisplayName={setDisplayName}
+          region={region}
+          setRegion={setRegion}
+          matchWaiting={matchWaiting}
+          queueTicket={queueTicket}
+          matchError={matchError}
+          startMatchmaking={startMatchmaking}
+          manualRoom={{
+            roomId,
+            setRoomId,
+            roomFromUrl,
+            preJoinRoom,
+            joinRoom,
+            joinError: error,
+          }}
+        />
+      );
+    }
+
     return (
       <>
         <h1>Study chat</h1>
-        <p className="lead">Enter the room code you were given, then join. Wait until your partner connects.</p>
+        <p className="lead">
+          {roomFromUrl
+            ? "Enter the room code you were given, then join. Wait until your partner connects."
+            : "Use the link from your instructions. If you only have a room code, enter it below."}
+        </p>
+
+        <div className="card" style={{ marginBottom: "1rem" }}>
+          <label htmlFor="name">Your name (required)</label>
+          <input
+            id="name"
+            type="text"
+            autoComplete="name"
+            maxLength={80}
+            placeholder="Enter the name shown to the researcher"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+          />
+          <p className="hint" style={{ marginBottom: 0 }}>
+            This name appears in the researcher dashboard and next to your messages in chat.
+          </p>
+        </div>
 
         {roomId.trim() ? (
           <div className="session-strip" aria-live="polite">
@@ -241,6 +474,11 @@ export function ParticipantApp() {
         ) : null}
 
         <div className="card">
+          {!roomFromUrl ? (
+            <p className="hint" style={{ marginTop: 0, marginBottom: "0.65rem", fontWeight: 600 }}>
+              {sessionFromUrl ? "Or join with a direct room code" : "Join with a room code"}
+            </p>
+          ) : null}
           <label htmlFor="room">Room code</label>
           <input
             id="room"
@@ -250,19 +488,9 @@ export function ParticipantApp() {
             value={roomId}
             onChange={(e) => setRoomId(e.target.value)}
           />
-          <div style={{ height: "0.75rem" }} />
-          <label htmlFor="name">Display name (optional)</label>
-          <input
-            id="name"
-            type="text"
-            autoComplete="off"
-            placeholder="Defaults to Participant 1 / 2"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-          />
           {error && <p className="error">{error}</p>}
           <div style={{ marginTop: "0.75rem" }}>
-            <button type="button" onClick={joinRoom}>
+            <button type="button" disabled={!displayName.trim()} onClick={() => joinRoom()}>
               Join room
             </button>
           </div>
@@ -312,7 +540,7 @@ export function ParticipantApp() {
       <div className="card">
         <div className="messages" ref={listRef} aria-live="polite">
           {messages.map((m) => (
-            <div key={m.id} className={`msg${m.slot === "llm" ? " llm" : ""}`}>
+            <div key={m.id} className={messageBubbleClass(m, slot)}>
               <div className="msg-meta">
                 {m.authorLabel}
                 {m.slot === slot ? " (you)" : ""} · {formatTime(m.ts)}

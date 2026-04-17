@@ -208,6 +208,11 @@ function detectRegionFromRequest(req: express.Request): string | null {
     req.headers["cf-ipcountry"],
     req.headers["x-vercel-ip-country"],
     req.headers["x-country-code"],
+    req.headers["x-country"],
+    req.headers["x-forwarded-country"],
+    req.headers["x-geo-country"],
+    req.headers["x-geoip-country"],
+    req.headers["x-geoip-country-code"],
     req.headers["x-appengine-country"],
     req.headers["cloudfront-viewer-country"],
   ];
@@ -220,6 +225,26 @@ function detectRegionFromRequest(req: express.Request): string | null {
     return upper;
   }
   return null;
+}
+
+function logGeoHeaders(req: express.Request, route: string) {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(req.headers)) {
+    const key = k.toLowerCase();
+    if (
+      key.includes("country") ||
+      key.includes("geo") ||
+      key.startsWith("cf-") ||
+      key.startsWith("x-vercel-") ||
+      key.startsWith("cloudfront-")
+    ) {
+      const value = Array.isArray(v) ? v.join(",") : String(v ?? "");
+      out[key] = value;
+    }
+  }
+  const detected = detectRegionFromRequest(req) ?? "unknown";
+  const ip = req.ip || req.socket.remoteAddress || "unknown-ip";
+  console.log(`[geo-debug] ${route} ip=${ip} detected=${detected} headers=${JSON.stringify(out)}`);
 }
 
 function roomCode(): string {
@@ -352,6 +377,7 @@ function normalizeParticipantPublicId(raw: unknown): string | null {
 }
 
 app.post("/api/sessions/:sessionId/presence", async (req, res) => {
+  logGeoHeaders(req, "/api/sessions/:sessionId/presence");
   pruneStaleSessionPresence();
   const sessionId = String(req.params.sessionId || "").trim().toLowerCase();
   if (!sessionId) {
@@ -539,6 +565,7 @@ app.post("/api/sessions/:sessionId/exit-survey", async (req, res) => {
 });
 
 app.post("/api/match/enqueue", (req, res) => {
+  logGeoHeaders(req, "/api/match/enqueue");
   cleanupStaleMatchTickets();
   const sessionId = String(req.body?.sessionId || "").trim().toLowerCase();
   if (!sessionId) {

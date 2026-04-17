@@ -256,11 +256,9 @@ function SessionParticipantInspectorPanel({
           Waiting to be paired.
         </p>
       ) : null}
-      {p.region?.trim() ? (
-        <p className="hint" style={{ marginTop: "0.25rem" }}>
-          Region: {p.region.trim()}
-        </p>
-      ) : null}
+      <p className="hint" style={{ marginTop: "0.25rem" }}>
+        Region: {p.region?.trim() || "Unknown (not detected)"}
+      </p>
       {p.lastSeenMs != null ? (
         <p className="hint" style={{ marginTop: "0.25rem" }}>
           Last page signal: {formatShort(p.lastSeenMs)}
@@ -1601,12 +1599,10 @@ export function AdminApp() {
                             {(s.waitingParticipants ?? []).map((w) => (
                               <li key={w.ticket}>
                                 {w.displayName}
-                                {w.region?.trim() ? (
-                                  <span className="hint" style={{ fontSize: "0.78rem" }}>
-                                    {" "}
-                                    · {w.region.trim()}
-                                  </span>
-                                ) : null}
+                                <span className="hint" style={{ fontSize: "0.78rem" }}>
+                                  {" "}
+                                  · {w.region?.trim() || "Unknown"}
+                                </span>
                                 <span className="hint" style={{ fontSize: "0.78rem" }}>
                                   {" "}
                                   · since {formatShort(w.waitingSince)}

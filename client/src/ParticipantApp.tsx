@@ -49,7 +49,6 @@ export function ParticipantApp() {
   const [roomId, setRoomId] = useState(roomFromUrl);
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("");
-  const [region, setRegion] = useState("");
   const [joined, setJoined] = useState(false);
   const [slot, setSlot] = useState<ParticipantSlot | null>(null);
   const [treatment, setTreatment] = useState<Treatment | null>(null);
@@ -76,8 +75,6 @@ export function ParticipantApp() {
     try {
       const saved = sessionStorage.getItem(`margarita.session.${sessionFromUrl}.displayName`);
       if (saved) setDisplayName((prev) => prev || saved);
-      const savedRegion = sessionStorage.getItem(`margarita.session.${sessionFromUrl}.region`);
-      if (savedRegion) setRegion((prev) => prev || savedRegion);
     } catch {
       /* ignore */
     }
@@ -229,7 +226,7 @@ export function ParticipantApp() {
     [connectSocket, displayName, roomId, sessionFromUrl, socket],
   );
 
-  const startMatchmaking = useCallback(async (regionInput: string) => {
+  const startMatchmaking = useCallback(async () => {
     if (!sessionFromUrl) {
       setMatchError("Missing session in your link. Use the study URL you were given.");
       return;
@@ -241,11 +238,6 @@ export function ParticipantApp() {
     }
     if (name.length > 80) {
       setMatchError("Name must be at most 80 characters.");
-      return;
-    }
-    const regionValue = regionInput.trim();
-    if (!regionValue) {
-      setMatchError("Enter your region before joining the queue.");
       return;
     }
     setMatchError(null);
@@ -265,7 +257,6 @@ export function ParticipantApp() {
         body: JSON.stringify({
           sessionId: sessionFromUrl,
           displayName: name,
-          region: regionValue,
           ...(participantPublicId ? { participantPublicId } : {}),
         }),
       });
@@ -354,7 +345,6 @@ export function ParticipantApp() {
     sessionId: sessionFromUrl || null,
     phase: "chat",
     displayName,
-    region,
     enabled: !!sessionFromUrl && joined,
   });
 
@@ -417,8 +407,6 @@ export function ParticipantApp() {
           sessionFetchState={sessionFetchState}
           displayName={displayName}
           setDisplayName={setDisplayName}
-          region={region}
-          setRegion={setRegion}
           matchWaiting={matchWaiting}
           queueTicket={queueTicket}
           matchError={matchError}

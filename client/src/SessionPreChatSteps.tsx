@@ -51,12 +51,10 @@ type Props = {
   sessionFetchState: "idle" | "ok" | "notfound";
   displayName: string;
   setDisplayName: Dispatch<SetStateAction<string>>;
-  region: string;
-  setRegion: Dispatch<SetStateAction<string>>;
   matchWaiting: boolean;
   queueTicket: string | null;
   matchError: string | null;
-  startMatchmaking: (region: string) => void | Promise<void>;
+  startMatchmaking: () => void | Promise<void>;
   manualRoom: ManualRoomProps;
 };
 
@@ -78,8 +76,6 @@ export function SessionPreChatSteps({
   sessionFetchState,
   displayName,
   setDisplayName,
-  region,
-  setRegion,
   matchWaiting,
   queueTicket,
   matchError,
@@ -105,7 +101,6 @@ export function SessionPreChatSteps({
     sessionId,
     phase: presencePhase,
     displayName,
-    region,
     matchTicket: queueTicket,
     enabled: true,
   });
@@ -113,9 +108,7 @@ export function SessionPreChatSteps({
   useEffect(() => {
     const savedName = sessionStorage.getItem(storageKey(sessionId, "displayName"));
     if (savedName) setDisplayName((d) => (d.trim() ? d : savedName));
-    const savedRegion = sessionStorage.getItem(storageKey(sessionId, "region"));
-    if (savedRegion) setRegion((r) => (r.trim() ? r : savedRegion));
-  }, [sessionId, setDisplayName, setRegion]);
+  }, [sessionId, setDisplayName]);
 
   useEffect(() => {
     setStep(readStep(sessionId));
@@ -352,23 +345,10 @@ export function SessionPreChatSteps({
       </div>
       <div className="card" style={{ marginBottom: "1rem" }}>
         <p style={{ margin: "0 0 0.5rem", fontWeight: 600 }}>Match with another participant</p>
-        <label htmlFor="session-region">Region or country</label>
-        <input
-          id="session-region"
-          type="text"
-          maxLength={64}
-          placeholder="e.g. USA, Germany"
-          value={region}
-          onChange={(e) => {
-            const v = e.target.value;
-            setRegion(v);
-            sessionStorage.setItem(storageKey(sessionId, "region"), v);
-          }}
-          style={{ marginBottom: "0.5rem" }}
-        />
         <p className="hint" style={{ marginTop: 0 }}>
-          When someone else enters at the same time, you will be placed in a chat together (two people per room). You can
-          open the chat as soon as you are ready; you do not need to wait for everyone else in the study.
+          When someone else enters at the same time, you will be placed in a chat together (two people per room). Region
+          is detected automatically by the server and may be used by the researcher’s pairing rule. You can open the chat
+          as soon as you are ready; you do not need to wait for everyone else in the study.
         </p>
         {matchError ? <p className="error">{matchError}</p> : null}
         <div style={{ marginTop: "0.75rem" }}>
@@ -378,10 +358,9 @@ export function SessionPreChatSteps({
               matchWaiting ||
               sessionFetchState === "notfound" ||
               sessionPairingEnabled !== true ||
-              !displayName.trim() ||
-              !region.trim()
+              !displayName.trim()
             }
-            onClick={() => void startMatchmaking(region.trim())}
+            onClick={() => void startMatchmaking()}
           >
             {matchWaiting ? (queueTicket ? "Waiting for partner…" : "Starting…") : "Enter chat queue"}
           </button>

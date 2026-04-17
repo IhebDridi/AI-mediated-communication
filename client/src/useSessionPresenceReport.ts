@@ -10,11 +10,10 @@ export function useSessionPresenceReport(opts: {
   sessionId: string | null | undefined;
   phase: string;
   displayName?: string;
-  region?: string;
   matchTicket?: string | null;
   enabled?: boolean;
 }) {
-  const { sessionId, phase, displayName = "", region = "", matchTicket = null, enabled = true } = opts;
+  const { sessionId, phase, displayName = "", matchTicket = null, enabled = true } = opts;
   const pidRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -50,15 +49,6 @@ export function useSessionPresenceReport(opts: {
         }
       }
 
-      let regionValue = region.trim();
-      if (!regionValue) {
-        try {
-          regionValue = sessionStorage.getItem(`margarita.session.${sessionId}.region`)?.trim() ?? "";
-        } catch {
-          /* ignore */
-        }
-      }
-
       void fetch(`/api/sessions/${encodeURIComponent(sessionId)}/presence`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -66,7 +56,6 @@ export function useSessionPresenceReport(opts: {
           participantPublicId,
           phase,
           displayName: name || undefined,
-          region: regionValue || undefined,
           matchTicket: matchTicket || undefined,
         }),
       }).catch(() => {});
@@ -75,5 +64,5 @@ export function useSessionPresenceReport(opts: {
     run();
     const id = window.setInterval(run, INTERVAL_MS);
     return () => window.clearInterval(id);
-  }, [sessionId, phase, displayName, region, matchTicket, enabled]);
+  }, [sessionId, phase, displayName, matchTicket, enabled]);
 }

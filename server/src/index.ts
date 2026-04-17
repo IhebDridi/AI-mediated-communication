@@ -202,6 +202,26 @@ function regionKey(region: string | null | undefined): string {
   return (region ?? "").trim().toLowerCase() || "unknown";
 }
 
+/** Best-effort region detection from proxy/CDN headers. */
+function detectRegionFromRequest(req: express.Request): string | null {
+  const candidates = [
+    req.headers["cf-ipcountry"],
+    req.headers["x-vercel-ip-country"],
+    req.headers["x-country-code"],
+    req.headers["x-appengine-country"],
+    req.headers["cloudfront-viewer-country"],
+  ];
+  for (const raw of candidates) {
+    const first = Array.isArray(raw) ? raw[0] : raw;
+    const region = normalizeRegion(first);
+    if (!region) continue;
+    const upper = region.toUpperCase();
+    if (upper === "XX" || upper === "ZZ" || upper === "UNKNOWN") continue;
+    return upper;
+  }
+  return null;
+}
+
 function roomCode(): string {
   const part = () => nanoid(4).toLowerCase();
   return `${part()}-${part()}`;
@@ -355,7 +375,7 @@ app.post("/api/sessions/:sessionId/presence", async (req, res) => {
     return;
   }
   const incomingName = normalizeDisplayName(req.body?.displayName);
-  const incomingRegion = normalizeRegion(req.body?.region);
+  const incomingRegion = detectRegionFromRequest(req);
   const matchTicketRaw = typeof req.body?.matchTicket === "string" ? req.body.matchTicket.trim() : "";
   const matchTicket = matchTicketRaw || null;
   const key = sessionPresenceKey(sessionId, participantPublicId);
@@ -542,7 +562,7 @@ app.post("/api/match/enqueue", (req, res) => {
   }
 
   const participantPublicId = normalizeParticipantPublicId(req.body?.participantPublicId);
-  const region = normalizeRegion(req.body?.region);
+  const region = detectRegionFromRequest(req);
 
   const ticket = nanoid(16);
   matchTickets.set(ticket, {
